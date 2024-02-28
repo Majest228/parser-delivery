@@ -1,8 +1,23 @@
 import puppeteer from "puppeteer";
 import fs from "fs";
 
-function removeLeadingDigits(str) {
-  return str.replace(/^\d+\s*,?\s*/, ""); 
+function updateAddress(inputStr) {
+  return inputStr.replace(/^[\d\s,]+/, ''); 
+}
+function simplifyAddresses(originalData) {
+  return originalData.map(cityData => {
+    return {
+      city: cityData.city,
+      warehouses: cityData.warehouses.map(warehouse => {
+        const simplifiedAddress = updateAddress(warehouse.address);
+        return {
+          working_time: warehouse.working_time,
+          address: simplifiedAddress,
+          address_full: warehouse.address
+        };
+      })
+    };
+  });
 }
 
 (async () => {
@@ -17,7 +32,7 @@ function removeLeadingDigits(str) {
   for (const item of items) {
     const cityElement = await item.$(".font__subtitle1");
     const cityNode = await cityElement.evaluate((node) =>
-      node.textContent.trim()
+      node.textContent
     );
 
     const shopInfoRows = await item.$$(".shop-info__row.ng-star-inserted");
@@ -31,19 +46,21 @@ function removeLeadingDigits(str) {
     );
     warehouse.working_time = working_time;
 
-    warehouse.address = removeLeadingDigits(address);
+    warehouse.address = updateAddress(address);
     warehouse.address_full = address;
 
     let city = cityNode.split(" ").slice(0, 1).join();
+    if (city.includes("Нижний")) {
+      city = "Нижний Новгород";
+    }
+    
     if (!citiesMap[city]) {
       citiesMap[city] = { city, warehouses: [] };
     }
-
+    
     citiesMap[city].warehouses.push(warehouse);
 
-    const hasPlaceOutlineClass = await shopInfoRows[0].$(
-      ".sproit-icon__place-outline"
-    );
+
   }
 
   await browser.close();
@@ -54,3 +71,6 @@ function removeLeadingDigits(str) {
 
   console.log("Delivery data has been saved to delivery.json");
 })();
+
+
+
